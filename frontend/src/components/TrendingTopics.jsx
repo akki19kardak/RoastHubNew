@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
+import { API_BASE } from "../App";
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "https://roasthub-backend-api.onrender.com";
 
 export default function TrendingTopics({ onTopicClick }) {
   const [trending, setTrending] = useState([]);
