@@ -17,6 +17,14 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 const MONGODB_URI = process.env.MONGODB_URI;
 
+// ── ALLOWED ORIGINS ──
+const ALLOWED_ORIGINS = [
+  'https://roast-hub-new.vercel.app',   // current frontend
+  'https://roasthubfront.vercel.app',   // old frontend (keep during migration)
+  'http://localhost:5173',              // Vite local dev
+  'http://localhost:3000',              // CRA / other local dev
+];
+
 async function connectDB() {
   if (!MONGODB_URI) {
     console.error('❌ MONGODB_URI not found in environment variables.');
@@ -38,9 +46,26 @@ async function connectDB() {
 connectDB();
 
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'https://roasthubfront.vercel.app',
-  methods: ['GET', 'POST'],
+  origin: (origin, callback) => {
+    // Allow requests with no origin (e.g. Postman, curl, server-to-server)
+    if (!origin) return callback(null, true);
+
+    // Also allow any origin set via env var (e.g. a custom domain later)
+    const envOrigin = process.env.FRONTEND_URL;
+    if (envOrigin && origin === envOrigin) return callback(null, true);
+
+    if (ALLOWED_ORIGINS.includes(origin)) {
+      callback(null, true);
+    } else {
+      console.warn(`🚫 CORS blocked origin: ${origin}`);
+      callback(new Error(`CORS policy: origin ${origin} not allowed`));
+    }
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,
 }));
+
 app.use(express.json());
 
 // ── ROUTES ──
