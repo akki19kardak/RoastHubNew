@@ -15,7 +15,7 @@ import RoastBattleMode   from "./components/RoastBattleMode";
 import usePinnedTweets   from "./hooks/usePinnedTweets";
 
 export const API_BASE =
-  import.meta.env.VITE_API_BASE_URL || "https://roasthub-backend-api.onrender.com";
+  import.meta.env.VITE_API_BASE_URL || "https://roasthubnew.onrender.com";
 
 const TABS = [
   { id: "generate", label: "🔥 Generate"     },
