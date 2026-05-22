@@ -1,0 +1,197 @@
+import React, { useState, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import axios from "axios";
+import "./App.css";
+
+import TweetCard         from "./components/TweetCard";
+import SkeletonGrid      from "./components/SkeletonGrid";
+import EmptyState        from "./components/EmptyState";
+import SearchWithHistory from "./components/SearchWithHistory";
+import TrendingTopics    from "./components/TrendingTopics";
+import RandomRoulette    from "./components/RandomRoulette";
+import PinnedFeed        from "./components/PinnedFeed";
+import WallOfFame        from "./components/WallOfFame";
+import RoastBattleMode   from "./components/RoastBattleMode";
+import usePinnedTweets   from "./hooks/usePinnedTweets";
+
+export const API_BASE =
+  import.meta.env.VITE_API_BASE_URL || "https://roasthub-backend-api.onrender.com";
+
+const TABS = [
+  { id: "generate", label: "🔥 Generate"     },
+  { id: "battle",   label: "⚔️ Battle"       },
+  { id: "fame",     label: "🏆 Hall of Fame" },
+];
+
+export default function App() {
+  const [topic,   setTopic]   = useState("");
+  const [tweets,  setTweets]  = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error,   setError]   = useState("");
+  const [tab,     setTab]     = useState("generate");
+  const [count,   setCount]   = useState(6);
+
+  const { isPinned, toggle: togglePin } = usePinnedTweets();
+
+  const generateTweets = useCallback(async (customTopic) => {
+    const t = (customTopic ?? topic).trim();
+    if (!t) { setError("Please enter a topic."); return; }
+
+    setLoading(true);
+    setError("");
+    setTweets([]);
+
+    try {
+      const res = await axios.post(`${API_BASE}/api/tweets/generate`, {
+        topic: t,
+        count,
+      });
+      setTweets(res.data.tweets || []);
+      if (customTopic) setTopic(customTopic);
+    } catch (err) {
+      setError(
+        err.response?.data?.error || "Something went wrong. Please try again."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [topic, count]);
+
+  const handleChipClick = (chipTopic) => {
+    setTopic(chipTopic);
+    generateTweets(chipTopic);
+  };
+
+  return (
+    <div className="app">
+
+      {/* ── HERO HEADER ── */}
+      <header className="app-header">
+        <div className="logo-wrap">
+          <img
+            src="/RoastHub.png"
+            alt="RoastHub Logo"
+            className="logo-img"
+            width={80}
+            height={80}
+            draggable={false}
+          />
+          <h1 className="app-title">Roast<span>Hub</span></h1>
+          <p className="app-subtitle">Global AI Roast Generator</p>
+        </div>
+      </header>
+
+      <main className="app-main">
+
+        {/* ── TABS ── */}
+        <div className="tabs-row">
+          {TABS.map((t) => (
+            <button
+              key={t.id}
+              className={`tab-btn${tab === t.id ? " active" : ""}`}
+              onClick={() => setTab(t.id)}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        {/* ── GENERATE TAB ── */}
+        {tab === "generate" && (
+          <>
+            <PinnedFeed />
+
+            <div className="search-controls">
+              <div className="search-row">
+                <SearchWithHistory
+                  onSearch={generateTweets}
+                  loading={loading}
+                  topic={topic}
+                  setTopic={setTopic}
+                />
+
+                <div className="count-select-wrap">
+                  <label className="count-label">Count</label>
+                  <select
+                    className="count-select"
+                    value={count}
+                    onChange={(e) => setCount(Number(e.target.value))}
+                    disabled={loading}
+                  >
+                    {[3, 4, 5, 6, 7, 8, 10].map((n) => (
+                      <option key={n} value={n}>{n} roasts</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Trending + Roulette */}
+              <div className="tools-row">
+                <TrendingTopics onTopicClick={handleChipClick} />
+                <RandomRoulette onSpin={handleChipClick} />
+              </div>
+            </div>
+
+            {/* Error */}
+            {error && (
+              <motion.div
+                className="error-message"
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+              >
+                ⚠️ {error}
+              </motion.div>
+            )}
+
+            {/* Skeleton while loading */}
+            {loading && <SkeletonGrid count={count} />}
+
+            {/* Empty state */}
+            {!loading && tweets.length === 0 && !error && (
+              <EmptyState onTopicClick={handleChipClick} />
+            )}
+
+            {/* Results grid */}
+            {!loading && tweets.length > 0 && (
+              <motion.div
+                className="tweets-grid"
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.35 }}
+              >
+                <AnimatePresence>
+                  {tweets.map((tweet, i) => (
+                    <motion.div
+                      key={`${tweet.text}-${i}`}
+                      initial={{ opacity: 0, y: 16 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: i * 0.06 }}
+                    >
+                      <TweetCard
+                        tweet={tweet}
+                        index={i}
+                        isPinned={isPinned(tweet)}
+                        onPin={() => togglePin(tweet)}
+                      />
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+              </motion.div>
+            )}
+          </>
+        )}
+
+        {/* ── BATTLE TAB ── */}
+        {tab === "battle" && <RoastBattleMode />}
+
+        {/* ── HALL OF FAME TAB ── */}
+        {tab === "fame" && <WallOfFame />}
+
+      </main>
+
+      <footer className="app-footer">
+        🔥 RoastHub · AI-Powered Global Roast Generator · Built with Groq + MongoDB
+      </footer>
+    </div>
+  );
+}
